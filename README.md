@@ -41,11 +41,9 @@ Download Python from [python.org](https://www.python.org/downloads/).
 ### 2. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
-cd YOUR_REPOSITORY
+git clone https://github.com/whitebuss7/LAN-3D-Battle-Arena.git
+cd LAN-3D-Battle-Arena
 ```
-
-Replace `YOUR_USERNAME` and `YOUR_REPOSITORY` with your GitHub username and repository name.
 
 Alternatively, download the repository as a ZIP file and extract it.
 
