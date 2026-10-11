@@ -1,39 +1,39 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-LAN ÜZERİNDEN 3 KİŞİLİK 3D SAVAŞ OYUNU  v2  (Ursina)
+3-PLAYER 3D BATTLE GAME OVER LAN v2 (Ursina)
 
-Kurulum (3 bilgisayarın hepsinde):   pip install ursina
-Sunucu kuran bilgisayar:             python savas3d.py host Ahmet
-Diğer 2 bilgisayar:                  python savas3d.py join 192.168.1.20 Mehmet
-(Argümansız çalıştırırsan soru sorar.)
-Sadece sunucu (ekransız):            python savas3d.py server
+Installation (on all 3 computers):   pip install ursina
+Host computer:                       python savas3d.py host Ahmet
+Other 2 computers:                   python savas3d.py join 192.168.1.20 Mehmet
+(If run without arguments, it will prompt for input.)
+Server only (headless):              python savas3d.py server
 
-Tüm bilgisayarlar AYNI Wi-Fi/LAN'da olmalı. Windows güvenlik duvarı sorarsa
-"Özel ağlar" için izin ver. Port: 5555 (TCP).
+All computers must be on the SAME Wi-Fi/LAN. If the Windows firewall asks,
+grant permission for "Private networks." Port: 5555 (TCP).
 
-OYUN AKIŞI
-  Herkes bağlanınca karakterini seçer (1/2/3 ya da tıkla) ve HAZIR'a basar.
-  Herkes hazır olunca sunucu kuran oyuncu "OYUNU BAŞLAT"a basar (3 kişi de
-  hazırsa oyun otomatik başlar). İlk 10 öldürmeyi yapan kazanır, sonra yeniden
-  karakter seçimine dönülür.
+GAMEPLAY
+Once everyone connects, they select their character (1/2/3 or click) and press READY. 
+When everyone is ready, the host player presses "START GAME" (the game
+starts automatically if all 3 players are ready). The first to get 10 kills wins;
+afterward, the game returns to the character selection screen.
 
-KARAKTERLER
-  1 KANAT   : [F] ile UÇAR (7 sn, bar), kullanınca 20 sn bekleme
-  2 ŞİMŞEK  : ÇOK hızlı koşar; koşarken birine çarparsa onu savurur (20 sn bekleme)
-  3 MAYMUN  : 150 can; [F] ile muz fırlatır, muza basan kayar ve 2 sn yerde kalır
-              (4 muzdan sonra 20 sn bekleme)
+CHARACTERS
+1 WING    : FLIES with [F] (7 sec, bar); 20-sec cooldown after use
+2 LIGHTNING: Runs VERY fast; knocks opponents away upon collision while running (20-sec cooldown)
+3 MONKEY  : 150 health; [F] throws a banana; anyone stepping on it slips and stays on the ground for 2 sec
+(20-sec cooldown after 4 bananas)
 
-KONTROLLER
-  W A S D        hareket          Boşluk   zıpla (kenara doğru basılı tut: tırmanır)
-  Sol Shift      sprint           C / Sol Ctrl   çömel (koşarken çömel = kayma)
-  Fare           bakış            Sol tık  ateş
-  Sağ tık        nişan / SNIPER DÜRBÜNÜ
-  1 Tabanca  2 AK-47  3 Pompalı  4 Sniper   (fare tekerleği de çalışır)
-  R              şarjör değiştir
-  G              bomba: basılı tut = güç, bırak = at
-  F              karakter yeteneği (uçuş aç/kapat  ya da  muz fırlat)
-  ESC            fareyi serbest bırak / devam
+CONTROLS
+W A S D        movement         Space    jump (hold near an edge: climb)
+Left Shift     sprint           C / Left Ctrl   crouch (crouch while running = slide)
+Mouse          look             Left-click  fire
+Right-click    aim / SNIPER SCOPE
+1 Pistol  2 AK-47  3 Shotgun  4 Sniper   (mouse wheel also works)
+R              reload
+G              grenade: hold = power, release = throw
+F              character ability (toggle flight  or  throw banana)
+ESC            release mouse / resume
 """
 import sys
 
@@ -79,9 +79,8 @@ SLIP_TIME = 2.0
 PCOLORS = [(0.92, 0.27, 0.27), (0.27, 0.55, 0.95), (0.31, 0.78, 0.39)]
 SKIN = (0.92, 0.74, 0.6)
 
-# ----------------------------------------------------------------------
-#  KARAKTERLER
-# ----------------------------------------------------------------------
+##############
+#  character
 CHARS = [
     dict(name="KANAT", hp=100, walk=5.5, sprint=9.0, col=(0.45, 0.75, 1.0),
          desc=["Can: 100", "[F] ile UÇAR", "Uçuş süresi: 7 sn", "Kullanınca 20 sn", "bekleme süresi var"]),
@@ -92,8 +91,8 @@ CHARS = [
 ]
 
 # ----------------------------------------------------------------------
-#  SİLAHLAR (sunucu ve istemci ortak)
-#  parts: (etiket, konum, boyut, renk, dönüş)   -> silah yerel uzayı: z ileri, orijin = kabze
+#  WEAPONS (shared between server and client)
+#  parts: (label, position, size, color, rotation)   -> weapon local space: z forward, origin = grip
 # ----------------------------------------------------------------------
 STEEL = (0.20, 0.21, 0.24)
 DARK = (0.09, 0.09, 0.10)
@@ -182,12 +181,12 @@ WEAPONS = [
 ]
 
 # ----------------------------------------------------------------------
-#  HARİTA (sabit, herkeste aynı)
+#  MAP (fixed, identical for everyone)
 # ----------------------------------------------------------------------
 BOXES = []        # (minx, miny, minz, maxx, maxy, maxz)
 BOX_COL = []
 BOX_TEX = []
-DECOR = []        # çarpışması olmayan süs nesneleri
+DECOR = []        # decorative objects without collision
 
 
 def _box(cx, cz, sx, sy, sz, y0=0.0, col=(0.55, 0.55, 0.6), tex='white_cube'):
@@ -249,7 +248,7 @@ def build_map():
     for (cx, cz, sx, sz) in ((0, -30.5, 63, 1), (0, 30.5, 63, 1), (-30.5, 0, 1, 62), (30.5, 0, 1, 62)):
         _box(cx, cz, sx, 12, sz, col=wallc, tex='brick')
 
-    # ---- merkez kule (platform, sütunlar, merdiven, korkuluk) ----
+    # ---- central tower (platform, columns, stairs, railing) ----
     plat = (0.62, 0.62, 0.68)
     _box(0, 0, 12, 0.5, 12, y0=2.5, col=plat)
     for sx in (-5.5, 5.5):
@@ -268,7 +267,7 @@ def build_map():
     _decor('cube', (0, 5.0, 0), (0.12, 4.0, 0.12), (0.8, 0.8, 0.8))
     _decor('cube', (0.55, 6.5, 0), (1.0, 0.6, 0.05), (0.85, 0.15, 0.15))
 
-    # ---- ev A (depo) ----
+    # ---- Building A (warehouse) ----
     _house(-20, -19, 10, 8, 3.2,
            gn=[(-22, 1.4, 1.1, 2.2), (-18, 1.4, 1.1, 2.2)], gs=[(-20, 2.4, 0, 2.4)],
            gw=[(-19, 1.4, 1.1, 2.2)], ge=[(-19, 2.4, 0, 2.4)], col=(0.72, 0.5, 0.4))
@@ -278,7 +277,7 @@ def build_map():
     _box(-22, -21, 1.5, 1.0, 1.5, col=WOOD)
     _box(-18.5, -17.5, 2.2, 0.9, 1.0, col=(0.4, 0.3, 0.2))
 
-    # ---- ev B ----
+    # ---- House B ----
     _house(20, 19, 9, 8, 3.2,
            gn=[(18, 1.4, 1.1, 2.2), (22, 1.4, 1.1, 2.2)], gs=[(20, 2.4, 0, 2.4)],
            gw=[(19, 2.4, 0, 2.4)], ge=[(19, 1.4, 1.1, 2.2)], col=(0.5, 0.62, 0.7), roof=(0.25, 0.3, 0.4))
@@ -288,7 +287,7 @@ def build_map():
     _box(22.5, 21, 1.5, 1.0, 1.5, col=WOOD)
     _box(18, 21.5, 2.2, 0.6, 1.1, col=(0.6, 0.6, 0.7))
 
-    # ---- konteynerler ----
+    # ---- containers ----
     def container(cx, cz, sx, sz, c, y0=0.0):
         _box(cx, cz, sx, 2.6, sz, y0=y0, col=c)
         _decor('cube', (cx, y0 + 1.3, cz), (sx + 0.03, 0.12, sz + 0.03), (0.9, 0.9, 0.9))
@@ -300,7 +299,7 @@ def build_map():
     container(12.5, -24, 2.4, 6.0, (0.5, 0.5, 0.55), y0=2.6)
     _box(8, -20.2, 1.5, 1.2, 1.5, col=WOOD)
 
-    # ---- siperlikler: (x, z, sx, sy, sz) ----
+    # ---- visors: (x, z, sx, sy, sz) ----
     crates = [
         (-15, -12, 3, 2, 3), (14, -14, 2, 2, 2), (-18, 10, 2.5, 1.5, 2.5),
         (18, 12, 3, 2.5, 3), (-8, 20, 6, 1.2, 1.5), (22, -6, 2, 3, 5),
@@ -311,23 +310,23 @@ def build_map():
         k = 0.45 + 0.08 * (i % 4)
         _box(x, z, sx, sy, sz, col=(0.55, k, 0.3))
         _decor('cube', (x, sy + 0.02, z), (sx * 0.92, 0.05, sz * 0.92), (0.35, 0.22, 0.1))
-    # kum torbaları
+    # sandbags
     sand = (0.72, 0.65, 0.45)
     for (x, z, sx, sz) in ((-9, 9, 4, 0.9), (9, -9, 4, 0.9), (9, 9, 0.9, 4), (-9, -9, 0.9, 4)):
         _box(x, z, sx, 1.1, sz, col=sand)
-    # kayalar
+    # rocks
     for (x, z) in ((-4, -15), (5, 15), (26, 12)):
         _box(x, z, 1.8, 0.9, 1.4, col=(0.45, 0.45, 0.48))
         _decor('cube', (x + 0.2, 0.85, z), (1.3, 0.7, 1.0), (0.5, 0.5, 0.52), (0, 25, 10))
         _decor('cube', (x - 0.3, 0.5, z + 0.2), (1.1, 0.8, 1.0), (0.4, 0.4, 0.43), (0, -30, 5))
-    # variller
+    # barrels
     for (x, z, c) in ((3, -14, (0.75, 0.15, 0.1)), (3.9, -13.5, (0.9, 0.7, 0.1)), (3.3, -12.8, (0.35, 0.4, 0.45)),
                       (-3.2, 14, (0.9, 0.7, 0.1)), (-4.1, 14.5, (0.75, 0.15, 0.1)),
                       (-17, -3, (0.35, 0.4, 0.45)), (-17.9, -3.4, (0.75, 0.15, 0.1))):
         _box(x, z, 0.8, 1.1, 0.8, col=c)
         _decor('cube', (x, 1.12, z), (0.84, 0.06, 0.84), (0.1, 0.1, 0.1))
         _decor('cube', (x, 0.55, z), (0.86, 0.07, 0.86), (0.12, 0.12, 0.12))
-    # ağaçlar
+    # trees
     greens = [(0.2, 0.5, 0.2), (0.25, 0.58, 0.22), (0.18, 0.44, 0.18)]
     trees = [(-27, -9), (25, -19), (-27, 17), (27, 6), (-4, -27), (15, 28), (-20, 28),
              (-14, 13), (15, -8), (-3, 12), (27, -2), (-28, 8)]
@@ -337,12 +336,12 @@ def build_map():
         _decor('sphere', (x, 5.3, z), (3.4, 3.0, 3.4), g[i % 3])
         _decor('sphere', (x + 0.8, 4.6, z + 0.5), (2.4, 2.2, 2.4), g[(i + 1) % 3])
         _decor('sphere', (x - 0.7, 6.0, z - 0.4), (2.3, 2.1, 2.3), g[(i + 2) % 3])
-    # lambalar
+    # lamps
     for (x, z) in ((-10, -10), (10, 10), (-24, -8), (24, 8)):
         _decor('cube', (x, 2.5, z), (0.15, 5.0, 0.15), (0.2, 0.2, 0.22))
         _decor('sphere', (x, 5.1, z), (0.6, 0.6, 0.6), (1.0, 0.95, 0.6))
         _decor('sphere', (x, 5.1, z), (1.4, 1.4, 1.4), (1.0, 0.95, 0.6))
-    # patikalar
+    # trails
     dirt = (0.58, 0.5, 0.36)
     _decor('cube', (0, 0.02, 0), (3.2, 0.03, 60), dirt)
     _decor('cube', (0, 0.025, 0), (60, 0.03, 3.2), dirt)
@@ -357,7 +356,7 @@ def build_map():
             continue
         s = r.uniform(1.0, 2.0)
         _decor('sphere', (x, s * 0.35, z), (s, s * 0.7, s), r.choice(greens))
-    # uzak dağlar ve bulutlar
+    # distant mountains and clouds
     for i in range(10):
         a = i * math.pi / 5
         _decor('sphere', (math.cos(a) * 140, 8, math.sin(a) * 140), (90, 55, 90),
@@ -375,7 +374,7 @@ PICKUP_SPOTS = [(-12, 0, 0), (12, 0, 0), (0, 0, -18), (0, 0, 18),
 
 
 # ----------------------------------------------------------------------
-#  GEOMETRİ YARDIMCILARI
+#  GEOMETRY HELPERS
 # ----------------------------------------------------------------------
 def ray_aabb(o, d, mn, mx):
     tmin, tmax = 0.0, 1e9
@@ -465,7 +464,7 @@ def lan_ip():
 
 
 # ======================================================================
-#  SUNUCU
+#  SERVER
 # ======================================================================
 class Conn:
     def __init__(self, sock):
@@ -501,7 +500,7 @@ class Server:
         self.over_t = 0.0
         self.running = True
 
-    # ---------- ağ ----------
+    # ---------- network ----------
     def start(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -621,7 +620,7 @@ class Server:
         self.bcast({"t": "reset"})
         self.send_lobby()
 
-    # ---------- mesaj işleme ----------
+    # ---------- message processing ----------
     def handle(self, pid, m):
         p = self.pl.get(pid)
         if p is None:
@@ -726,7 +725,7 @@ class Server:
             self.bcast({"t": "imp", "id": vid, "v": [d[0] * kn, d[1] * kn * 0.4, d[2] * kn]})
             self.damage(vid, dm, pid, w['name'] + (" (KAFA)" if head else ""), head)
 
-    # ---------- hasar / ölüm ----------
+    # ---------- damage / death ----------
     def damage(self, vid, dmg, attacker, cause, head=False):
         q = self.pl.get(vid)
         if q is None or not q['alive'] or q['inv'] > 0 or self.over_t > 0 or self.phase != 'play':
@@ -761,7 +760,7 @@ class Server:
                  ram_cd=0.0, bn=BAN_MAX, bn_cd=0.0)
         self.bcast({"t": "respawn", "id": pid, "p": q['p'], "ch": q['char'], "mhp": q['mhp']})
 
-    # ---------- simülasyon ----------
+    # ---------- simulation ----------
     def sim_loop(self):
         dt = 1 / 60
         nxt = pytime.perf_counter()
@@ -772,7 +771,7 @@ class Server:
                     self.step(dt)
                     if tick % 2 == 0:
                         self.broadcast_world()
-                except Exception as e:      # sunucu döngüsü asla ölmesin
+                except Exception as e:      # May the server loop never die
                     print("[sunucu] simülasyon hatası:", repr(e))
             tick += 1
             nxt += dt
@@ -920,7 +919,7 @@ class Server:
             f = 1 - d / R
             dirv = [dv[0] / d, dv[1] / d, dv[2] / d] if d > 0.01 else [0, 1, 0]
             if d > 0.5 and world_t(c, dirv, d) < d - 0.3:
-                f *= 0.3            # siper arkasında hasar azalır
+                f *= 0.3            # Damage is reduced behind cover.
             if q['inv'] <= 0:
                 self.bcast({"t": "imp", "id": q['id'],
                             "v": [dirv[0] * 24 * f, dirv[1] * 24 * f + 10 * f, dirv[2] * 24 * f]})
@@ -950,7 +949,7 @@ class Server:
 
 
 # ======================================================================
-#  İSTEMCİ AĞ KATMANI
+#  CLIENT NETWORK LAYER
 # ======================================================================
 class NetClient:
     def __init__(self, host, port, name):
@@ -994,7 +993,7 @@ class NetClient:
 
 
 # ======================================================================
-#  İSTEMCİ OYUN (Ursina)
+#  CLIENT GAME (Ursina)
 # ======================================================================
 if HAVE_URSINA:
 
@@ -1053,9 +1052,9 @@ if HAVE_URSINA:
         Entity(parent=f, model='cube', color=col(1, 0.6, 0.15, 0.9), scale=(0.035, 0.035, 0.28), z=0.15)
         return f
 
-    # ------------------------------------------------------------------
-    #  SES (kod ile üretilen basit efektler; olmazsa sessiz devam eder)
-    # ------------------------------------------------------------------
+# ------------------------------------------------------------------
+#  SOUND (simple effects generated via code; proceeds silently if unavailable)
+# ------------------------------------------------------------------
     class SFX:
         def __init__(self):
             self.snd = {}
@@ -1124,9 +1123,9 @@ if HAVE_URSINA:
             except Exception:           # noqa
                 pass
 
-    # ------------------------------------------------------------------
-    #  UZAKTAKİ OYUNCU MODELİ
-    # ------------------------------------------------------------------
+# ------------------------------------------------------------------
+#  REMOTE PLAYER MODEL
+# ------------------------------------------------------------------
     class Peer:
         def __init__(self, pid):
             self.pid = pid
@@ -1270,9 +1269,9 @@ if HAVE_URSINA:
         def destroy(self):
             destroy(self.root)
 
-    # ------------------------------------------------------------------
-    #  OYUN
-    # ------------------------------------------------------------------
+# ------------------------------------------------------------------
+#  GAME
+# ------------------------------------------------------------------
     class Arena(Entity):
         def __init__(self, net, myname):
             super().__init__()
@@ -1379,7 +1378,7 @@ if HAVE_URSINA:
             self.hud.enabled = False
             mouse.locked = False
 
-        # ------------------ dünya ------------------
+        # ------------------ earth ------------------
         def build_world(self):
             Sky()
             try:
@@ -1435,7 +1434,7 @@ if HAVE_URSINA:
             self.t_dead = txt("", 0, 0.05, 2.0, col(1, 0.4, 0.4), origin=(0, 0))
             self.t_help = txt("", 0, -0.2, 1.2, col(1, 1, 1), origin=(0, 0))
             self.t_char = txt("", -0.88, -0.30, 0.9, col(1, 1, 1))
-            # artı (silahın saçılmasına göre açılır)
+            # crosshair (expands based on weapon spread)
             self.cross = []
             for (dx, dy, w, h) in ((1, 0, 0.012, 0.002), (-1, 0, 0.012, 0.002),
                                    (0, 1, 0.002, 0.012), (0, -1, 0.002, 0.012)):
@@ -1444,7 +1443,7 @@ if HAVE_URSINA:
                 self.cross.append(e)
             self.hit_q = Text(parent=hud, text="X", position=(0, 0), origin=(0, 0), scale=2.0, color=color.white)
             self.hit_q.enabled = False
-            # dürbün
+            # binoculars
             self.scope = []
             blk = col(0, 0, 0, 1)
             self.scope.append(quad(-1.45, 0, 2, 2, blk, z=0.3))
@@ -1466,7 +1465,7 @@ if HAVE_URSINA:
                 t.text = s
                 t._cache = s
 
-        # ------------------ karakter seçim ekranı ------------------
+       # ------------------ character selection screen ------------------
         def build_lobby(self):
             L = self.lobby = Entity(parent=camera.ui)
             Entity(parent=L, model='quad', scale=(3, 3), color=col(0.03, 0.04, 0.07, 0.8), z=0.5)
@@ -1559,7 +1558,7 @@ if HAVE_URSINA:
                 msg = "Sunucuyu kuran oyuncunun oyunu başlatması bekleniyor..."
             self.set_text(self.t_lob, msg)
 
-        # ------------------ ilk kişi bacakları ------------------
+        # ------------------ first-person legs ------------------
         def build_legs(self):
             self.legs_root = Entity()
             self.leg_parts = []
@@ -1571,7 +1570,7 @@ if HAVE_URSINA:
                 self.leg_parts.append((piv, leg, shoe))
             self.legs_root.enabled = False
 
-        # ------------------ silah ------------------
+       # ------------------ weapon ------------------
         def set_weapon(self, wi):
             S = self.S
             S.wi = wi % len(WEAPONS)
@@ -1592,7 +1591,7 @@ if HAVE_URSINA:
             self.vm_muz.position = Vec3(*w['muz'])
             self.vm_eject.position = Vec3(*w['ej'])
 
-        # ------------------ ağ mesajları ------------------
+        # ------------------ network messages ------------------
         def process_net(self):
             for _ in range(100):
                 try:
@@ -1751,7 +1750,7 @@ if HAVE_URSINA:
                     S.peers[pid].destroy()
                     del S.peers[pid]
             S.scores = scores
-            # bombalar
+            # bombs
             ids = set()
             for gid, x, y, z in m['ng']:
                 ids.add(gid)
@@ -1762,7 +1761,7 @@ if HAVE_URSINA:
             for gid in list(S.nade_ents):
                 if gid not in ids:
                     destroy(S.nade_ents.pop(gid))
-            # muzlar
+            # bananas
             ids = set()
             for bid, x, y, z, landed in m['bn']:
                 ids.add(bid)
@@ -1780,7 +1779,7 @@ if HAVE_URSINA:
             for bid in list(S.ban_ents):
                 if bid not in ids:
                     destroy(S.ban_ents.pop(bid))
-            # kasalar
+            # cases
             ids = set()
             for pk_id, kind, x, y, z in m['pk']:
                 ids.add(pk_id)
@@ -1823,7 +1822,7 @@ if HAVE_URSINA:
                         self.spark(e)
                         self.smoke((e[0], e[1], e[2]), 0.12, 0.3, 0.7, 0.5, 0.8)
 
-        # ------------------ efektler ------------------
+        # ------------------ efects ------------------
         def add_fx(self, e, v=None, life=0.5, grav=True, bounce=True, grow=0.0, fade=None, drag=0.0, spin=None):
             S = self.S
             if len(S.fx) > 240:
@@ -1943,7 +1942,7 @@ if HAVE_URSINA:
                 alive.append(f)
             S.fx = alive
 
-        # ------------------ yerel oyuncu ------------------
+        # ------------------ local player ------------------
         def reset_local(self, pos):
             S = self.S
             S.p = [float(pos[0]), float(pos[1]), float(pos[2])]
@@ -2024,7 +2023,7 @@ if HAVE_URSINA:
                 fw = st = 0.0
                 sprint_key = crouch_key = jump_held = False
                 S.jump_buf = 0.0
-            # --- boy (çömelme) ---
+           # --- height (squat) ---
             if slipped:
                 target = H_SLIP
             elif (crouch_key or S.slide_t > 0) and not S.flying:
@@ -2038,14 +2037,14 @@ if HAVE_URSINA:
                 if not boxes_at(S.p[0], S.p[1], S.p[2], nh):
                     S.hh = nh
             crouching = S.hh < 1.45
-            # --- zamanlayıcılar ---
+           # --- timers ---
             if S.on_ground:
                 S.coyote = 0.1
             else:
                 S.coyote = max(0.0, S.coyote - dt)
             S.jump_buf = max(0.0, S.jump_buf - dt)
             sp_xz = math.hypot(S.v[0], S.v[2])
-            # --- kayma başlat ---
+            # --- start sliding ---
             cedge = crouch_key and not S.crouch_prev
             S.crouch_prev = crouch_key
             if (cedge and S.on_ground and S.slide_t <= 0 and self.sprinting and sp_xz > 6.0
@@ -2053,7 +2052,7 @@ if HAVE_URSINA:
                 S.slide_t = SLIDE_TIME
                 S.slide_dir = (S.v[0] / sp_xz, S.v[2] / sp_xz)
                 S.slide_spd = min(sp_xz * 1.15, 14.0)
-            # --- istenen yön ---
+            # --- desired direction ---
             yr = math.radians(S.yaw)
             fx, fz = math.sin(yr), math.cos(yr)
             rx, rz = math.cos(yr), -math.sin(yr)
@@ -2459,7 +2458,7 @@ if HAVE_URSINA:
                 leg.y = -0.4 * kh
                 shoe.y = -0.86 * kh
 
-        # ------------------ HUD güncelle ------------------
+       # ------------------ Update HUD ------------------
         def update_hud(self, dt):
             S = self.S
             w = WEAPONS[S.wi]
@@ -2505,7 +2504,7 @@ if HAVE_URSINA:
             self.ab_fg.scale_x = 0.34 * clampf(frac, 0.0, 1.0)
             self.ab_fg.color = c
             self.set_text(self.t_ab, txt_)
-            # artı: silaha ve harekete göre açılır
+            # plus: unlocks based on weapon and action
             sp_xz = math.hypot(S.v[0], S.v[2])
             gap = 0.006 + w['spread'] * 0.9 + S.bloom * 0.9 + min(sp_xz, 9) * 0.0015
             if not S.on_ground:
@@ -2621,7 +2620,7 @@ if HAVE_URSINA:
 
 
 # ======================================================================
-#  BAŞLATMA
+#  INITIALIZATION
 # ======================================================================
 def run_client(host, name):
     if not HAVE_URSINA:
