@@ -47,7 +47,7 @@ try:
 except ImportError:
     HAVE_URSINA = False
 
-# NOT: ursina'dan SONRA import ediyoruz ki isimler ezilmesin
+# NOTE: We are importing AFTER Ursina so that the names don't get crushed.
 import math
 import json
 import queue
